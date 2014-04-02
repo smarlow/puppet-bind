@@ -9,7 +9,11 @@ zone "<%= @name %>" IN {
 <% if @is_dynamic -%>
   file "<%= scope.lookupvar("bind::params::dynamic_directory") %>/<%= @name %>.conf";
 <% else -%>
+  <% if @auto_serial -%>
+  file "<%= scope.lookupvar("bind::params::pri_directory") %>/soa.<%= @name %>.conf";
+  <% else -%>
   file "<%= scope.lookupvar("bind::params::pri_directory") %>/<%= @name %>.conf";
+  <% end -%>
 <% end -%>
 <% if @zone_xfers and not @zone_xfers.empty? -%>
   <% if @zone_xfers.is_a?(Array) -%>

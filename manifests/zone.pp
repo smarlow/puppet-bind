@@ -4,6 +4,7 @@
 #
 # Arguments:
 #  *$is_slave*: Boolean. Is your zone a slave or a master? Default false
+#  *$auto_serial: Boolean. If true, will update your zone serial automatically (master only)
 #  *$transfer_source*: IPv4 address. Source IP to bind to when requesting a transfer (slave only)
 #  *$zone_ttl*: Time period. Time to live for your zonefile (master only)
 #  *$zone_contact*: Valid contact record (master only)
@@ -21,6 +22,7 @@ define bind::zone (
   $ensure          = present,
   $is_dynamic      = false,
   $is_slave        = false,
+  $auto_serial     = false,
   $allow_update    = [],
   $transfer_source = '',
   $zone_ttl        = '',
@@ -44,6 +46,7 @@ define bind::zone (
 
   validate_bool($is_dynamic)
   validate_bool($is_slave)
+  validate_bool($auto_serial)
   validate_array($allow_update)
   validate_string($transfer_source)
   validate_string($zone_ttl)
@@ -95,8 +98,11 @@ define bind::zone (
       } else {
         validate_re($zone_contact, '^\S+$', "Wrong contact value for ${name}!")
         validate_re($zone_ns, '^\S+$', "Wrong ns value for ${name}!")
-        validate_re($zone_serial, '^\d+$', "Wrong serial value for ${name}!")
         validate_re($zone_ttl, '^\d+$', "Wrong ttl value for ${name}!")
+
+        if $auto_serial == false {
+          validate_re($zone_serial, '^\d+$', "Wrong serial value for ${name}!")
+        }
 
         $conf_file = $is_dynamic? {
           true    => "${bind::params::dynamic_directory}/${name}.conf",
@@ -127,10 +133,34 @@ define bind::zone (
             require => Package['bind9'],
           }
 
-          concat::fragment {"00.bind.${name}":
-            ensure  => $ensure,
-            target  => $conf_file,
-            content => template('bind/zone-header.erb'),
+          if $auto_serial {
+            #This block generates a separate SOA header file when
+            #  $conf_file is updated.
+            $soa_file = "${bind::params::pri_directory}/soa.${name}.conf"
+
+            file {$soa_file:
+              owner   => 'root',
+              group   => $bind::params::bind_group,
+              mode    => '0644',
+              require => Package['bind9'],
+            }
+
+            $soa_content = template('bind/zone-header.erb')
+
+            exec {"soa-${name}":
+              command     => "echo \'$soa_content\' > \'$soa_file\'",
+              refreshonly => true,
+            }
+
+            Concat[$conf_file] {
+              notify => Exec["soa-${name}"],
+            }
+          } else {
+            concat::fragment {"00.bind.${name}":
+              ensure  => $ensure,
+              target  => $conf_file,
+              content => template('bind/zone-header.erb'),
+            }
           }
         }
 
@@ -145,6 +175,9 @@ define bind::zone (
     }
     absent: {
       file {"${bind::params::pri_directory}/${name}.conf":
+        ensure => absent,
+      }
+      file {"${bind::params::pri_directory}/soa.${name}.conf":
         ensure => absent,
       }
       file {"${bind::params::zones_directory}/${name}.conf":

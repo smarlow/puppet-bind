@@ -1,7 +1,11 @@
 ; File managed by puppet
 $TTL <%= @zone_ttl %>
 @ IN SOA <%= @name %>. <%= @zone_contact %>. (
+<% if @auto_serial -%>
+      <%= Time.now.to_i %> ; serial 
+<% else -%>
       <%= @zone_serial %>  ; serial
+<% end -%>
       <%= @zone_refresh %> ; refresh
       <%= @zone_retry %>   ; retry
       <%= @zone_expiracy %>; expiracy
@@ -9,4 +13,7 @@ $TTL <%= @zone_ttl %>
       IN NS <%= @zone_ns %>.
 <% if @zone_origin -%>
 $ORIGIN <%= @zone_origin %>.
+<% end -%>
+<% if @auto_serial and not @is_dynamic -%>
+$INCLUDE <%= scope.lookupvar("bind::params::pri_directory") %>/<%= @name %>.conf
 <% end -%>
