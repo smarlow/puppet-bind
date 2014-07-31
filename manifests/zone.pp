@@ -156,6 +156,7 @@ define bind::zone (
             exec {"soa-${name}":
               command     => "echo \'${soa_content}\' > \'${soa_file}\'",
               refreshonly => true,
+              provider    => 'shell',
             }
 
           } else {
