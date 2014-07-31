@@ -125,11 +125,17 @@ define bind::zone (
             require => [Package['bind9'], $require],
           }
         } else {
+
+          $conf_file_notify = $auto_serial ? {
+            true    => [Exec["soa-${name}"], Exec['reload bind9']],
+            default => Exec['reload bind9']
+          }
+
           concat {$conf_file:
             owner   => root,
             group   => $bind::params::bind_group,
             mode    => '0664',
-            notify  => Exec['reload bind9'],
+            notify  => $conf_file_notify,
             require => Package['bind9'],
           }
 
@@ -148,13 +154,10 @@ define bind::zone (
             $soa_content = template('bind/zone-header.erb')
 
             exec {"soa-${name}":
-              command     => "echo \'$soa_content\' > \'$soa_file\'",
+              command     => "echo \'${soa_content}\' > \'${soa_file}\'",
               refreshonly => true,
             }
 
-            Concat[$conf_file] {
-              notify => Exec["soa-${name}"],
-            }
           } else {
             concat::fragment {"00.bind.${name}":
               ensure  => $ensure,
