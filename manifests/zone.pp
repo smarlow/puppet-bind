@@ -4,6 +4,7 @@
 #
 # Arguments:
 #  *$is_slave*: Boolean. Is your zone a slave or a master? Default false
+#  *$force_concat*: Boolean. Create zone conf file even if there are no A records.
 #  *$transfer_source*: IPv4 address. Source IP to bind to when requesting a transfer (slave only)
 #  *$zone_ttl*: Time period. Time to live for your zonefile (master only)
 #  *$zone_contact*: Valid contact record (master only)
@@ -21,6 +22,7 @@ define bind::zone (
   $ensure          = present,
   $is_dynamic      = false,
   $is_slave        = false,
+  $force_concat    = false,
   $allow_update    = [],
   $transfer_source = '',
   $zone_ttl        = '',
@@ -125,6 +127,7 @@ define bind::zone (
             mode    => '0664',
             notify  => Exec['reload bind9'],
             require => Package['bind9'],
+            force   => $force_concat,
           }
 
           concat::fragment {"00.bind.${name}":
