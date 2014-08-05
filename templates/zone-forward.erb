@@ -1,0 +1,12 @@
+# File managed by puppet
+zone <%= @name %> IN {
+  type forward;
+  <% if @zone_forwarders.is_a?(Array) -%>
+  forwarders { <%= @zone_forwarders.join('; ') -%>; };
+  <% else -%>
+  forwarders { <%= @zone_forwarders -%>; };
+  <% end -%>
+  <% if @forward_only -%>
+  forward only;
+  <%end -%>
+};
