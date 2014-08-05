@@ -4,6 +4,8 @@
 #
 # Arguments:
 #  *$is_slave*: Boolean. Is your zone a slave or a master? Default false
+#  *$is_foward*: Boolean. Is your zone a forward zone? Default false
+#  *$is_forward_only*: Boolean. Is your zone only a forward zone? Default false
 #  *$transfer_source*: IPv4 address. Source IP to bind to when requesting a transfer (slave only)
 #  *$zone_ttl*: Time period. Time to live for your zonefile (master only)
 #  *$zone_contact*: Valid contact record (master only)
@@ -16,11 +18,14 @@
 #  *$zone_masters*: IPs. Valid master for this zone (slave only)
 #  *$zone_origin*: The origin of the zone
 #  *$zone_notify*: IPs to use for also-notify entry
+#  *$zone_notify*: IPs to use as forwarders. String or array.
 #
 define bind::zone (
   $ensure          = present,
   $is_dynamic      = false,
   $is_slave        = false,
+  $is_forward      = false,
+  $is_forward_only = false,
   $allow_update    = [],
   $transfer_source = '',
   $zone_ttl        = '',
@@ -33,7 +38,8 @@ define bind::zone (
   $zone_xfers      = '',
   $zone_masters    = '',
   $zone_origin     = '',
-  $zone_notify     = ''
+  $zone_notify     = '',
+  $zone_forwarders = '',
 ) {
 
   include bind::params
@@ -44,6 +50,8 @@ define bind::zone (
 
   validate_bool($is_dynamic)
   validate_bool($is_slave)
+  validate_bool($is_forward)
+  validate_bool($is_forward_only)
   validate_array($allow_update)
   validate_string($transfer_source)
   validate_string($zone_ttl)
@@ -61,6 +69,18 @@ define bind::zone (
 
   if ($transfer_source != '' and ! $is_slave) {
     fail "Zone '${name}': transfer_source can be set only for slave zones!"
+  }
+
+  if ($is_forward and $is_dynamic) {
+    fail "Zone '${name}' cannot be forwarding AND dynamic!"
+  }
+
+  if ($is_forward and $is_slave) {
+    fail "Zone '${name}' cannot be forwarding AND a slave!"
+  }
+
+  if ($is_forward and empty($zone_forwarders)) {
+    fail "Forwarding zone ${name} must have forwarders defined."
   }
 
   concat::fragment {"named.local.zone.${name}":
@@ -93,53 +113,59 @@ define bind::zone (
         }
 ## END of slave
       } else {
-        validate_re($zone_contact, '^\S+$', "Wrong contact value for ${name}!")
-        validate_re($zone_ns, '^\S+$', "Wrong ns value for ${name}!")
-        validate_re($zone_serial, '^\d+$', "Wrong serial value for ${name}!")
-        validate_re($zone_ttl, '^\d+$', "Wrong ttl value for ${name}!")
-
-        $conf_file = $is_dynamic? {
-          true    => "${bind::params::dynamic_directory}/${name}.conf",
-          default => "${bind::params::pri_directory}/${name}.conf",
-        }
-
-        $require = $is_dynamic? {
-          true    => Bind::Key[$allow_update],
-          default => undef,
-        }
-
-        if $is_dynamic {
-          file {$conf_file:
-            owner   => root,
-            group   => $bind::params::bind_group,
-            mode    => '0664',
-            replace => false,
-            content => template('bind/zone-header.erb'),
-            notify  => Exec['reload bind9'],
-            require => [Package['bind9'], $require],
+        if $is_forward {
+          Concat::Fragment["bind.zones.${name}"] {
+            content => template('bind/zone-forward.erb'),
           }
         } else {
-          concat {$conf_file:
-            owner   => root,
-            group   => $bind::params::bind_group,
-            mode    => '0664',
-            notify  => Exec['reload bind9'],
-            require => Package['bind9'],
+          validate_re($zone_contact, '^\S+$', "Wrong contact value for ${name}!")
+          validate_re($zone_ns, '^\S+$', "Wrong ns value for ${name}!")
+          validate_re($zone_serial, '^\d+$', "Wrong serial value for ${name}!")
+          validate_re($zone_ttl, '^\d+$', "Wrong ttl value for ${name}!")
+
+          $conf_file = $is_dynamic? {
+            true    => "${bind::params::dynamic_directory}/${name}.conf",
+            default => "${bind::params::pri_directory}/${name}.conf",
           }
 
-          concat::fragment {"00.bind.${name}":
-            ensure  => $ensure,
-            target  => $conf_file,
-            content => template('bind/zone-header.erb'),
+          $require = $is_dynamic? {
+            true    => Bind::Key[$allow_update],
+            default => undef,
           }
-        }
 
-        Concat::Fragment["bind.zones.${name}"] {
-          content => template('bind/zone-master.erb'),
-        }
+          if $is_dynamic {
+            file {$conf_file:
+              owner   => root,
+              group   => $bind::params::bind_group,
+              mode    => '0664',
+              replace => false,
+              content => template('bind/zone-header.erb'),
+              notify  => Exec['reload bind9'],
+              require => [Package['bind9'], $require],
+            }
+          } else {
+            concat {$conf_file:
+              owner   => root,
+              group   => $bind::params::bind_group,
+              mode    => '0664',
+              notify  => Exec['reload bind9'],
+              require => Package['bind9'],
+            }
 
-        file {"${bind::params::pri_directory}/${name}.conf.d":
-          ensure  => absent,
+            concat::fragment {"00.bind.${name}":
+              ensure  => $ensure,
+              target  => $conf_file,
+              content => template('bind/zone-header.erb'),
+            }
+          }
+
+          Concat::Fragment["bind.zones.${name}"] {
+            content => template('bind/zone-master.erb'),
+          }
+
+          file {"${bind::params::pri_directory}/${name}.conf.d":
+            ensure  => absent,
+          }
         }
       }
     }
