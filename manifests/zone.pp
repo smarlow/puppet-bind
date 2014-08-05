@@ -46,6 +46,7 @@ define bind::zone (
 
   validate_bool($is_dynamic)
   validate_bool($is_slave)
+  validate_bool($force_concat)
   validate_array($allow_update)
   validate_string($transfer_source)
   validate_string($zone_ttl)
