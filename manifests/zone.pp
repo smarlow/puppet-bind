@@ -165,6 +165,7 @@ define bind::zone (
               mode    => '0664',
               notify  => $conf_file_notify,
               require => Package['bind9'],
+              force   => $force_concat,
             }
 
             if $auto_serial {
@@ -194,41 +195,14 @@ define bind::zone (
                 content => template('bind/zone-header.erb'),
               }
             }
+          }
 
-            if $is_dynamic {
-              file {$conf_file:
-                owner   => root,
-                group   => $bind::params::bind_group,
-                mode    => '0664',
-                replace => false,
-                content => template('bind/zone-header.erb'),
-                notify  => Exec['reload bind9'],
-                require => [Package['bind9'], $require],
-              }
-            } else {
-              concat {$conf_file:
-                owner   => root,
-                group   => $bind::params::bind_group,
-                mode    => '0664',
-                notify  => Exec['reload bind9'],
-                require => Package['bind9'],
-            force   => $force_concat,
-              }
+          Concat::Fragment["bind.zones.${name}"] {
+            content => template('bind/zone-master.erb'),
+          }
 
-              concat::fragment {"00.bind.${name}":
-                ensure  => $ensure,
-                target  => $conf_file,
-                content => template('bind/zone-header.erb'),
-              }
-            }
-
-            Concat::Fragment["bind.zones.${name}"] {
-              content => template('bind/zone-master.erb'),
-            }
-
-            file {"${bind::params::pri_directory}/${name}.conf.d":
-              ensure  => absent,
-            }
+          file {"${bind::params::pri_directory}/${name}.conf.d":
+            ensure  => absent,
           }
         }
       }
