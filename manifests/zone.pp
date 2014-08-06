@@ -7,6 +7,7 @@
 #  *$auto_serial: Boolean. If true, will update your zone serial automatically (master only)
 #  *$is_foward*: Boolean. Is your zone a forward zone? Default false
 #  *$is_forward_only*: Boolean. Is your zone only a forward zone? Default false
+#  *$force_concat*: Boolean. Create zone conf file even if there are no A records.
 #  *$transfer_source*: IPv4 address. Source IP to bind to when requesting a transfer (slave only)
 #  *$zone_ttl*: Time period. Time to live for your zonefile (master only)
 #  *$zone_contact*: Valid contact record (master only)
@@ -28,6 +29,7 @@ define bind::zone (
   $auto_serial     = false,
   $is_forward      = false,
   $is_forward_only = false,
+  $force_concat    = false,
   $allow_update    = [],
   $transfer_source = '',
   $zone_ttl        = '',
@@ -55,6 +57,7 @@ define bind::zone (
   validate_bool($auto_serial)
   validate_bool($is_forward)
   validate_bool($is_forward_only)
+  validate_bool($force_concat)
   validate_array($allow_update)
   validate_string($transfer_source)
   validate_string($zone_ttl)
@@ -209,6 +212,7 @@ define bind::zone (
                 mode    => '0664',
                 notify  => Exec['reload bind9'],
                 require => Package['bind9'],
+            force   => $force_concat,
               }
 
               concat::fragment {"00.bind.${name}":
