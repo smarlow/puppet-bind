@@ -4,7 +4,7 @@
 #
 # Arguments:
 #  *$is_slave*: Boolean. Is your zone a slave or a master? Default false
-#  *$is_foward*: Boolean. Is your zone a forward zone? Default false
+#  *$is_forward*: Boolean. Is your zone a forward zone? Default false
 #  *$is_forward_only*: Boolean. Is your zone only a forward zone? Default false
 #  *$transfer_source*: IPv4 address. Source IP to bind to when requesting a transfer (slave only)
 #  *$zone_ttl*: Time period. Time to live for your zonefile (master only)
