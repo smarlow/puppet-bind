@@ -10,7 +10,9 @@ $TTL <%= @zone_ttl %>
       <%= @zone_retry %>   ; retry
       <%= @zone_expiracy %>; expiracy
       <%= @zone_ttl %> )   ; TTL
-      IN NS <%= @zone_ns %>.
+<% @zone_ns_array.each do |ns| -%>
+      IN NS <%= ns %>.
+<% end -%>
 <% if @zone_origin -%>
 $ORIGIN <%= @zone_origin %>.
 <% end -%>
