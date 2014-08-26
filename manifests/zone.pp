@@ -11,7 +11,7 @@
 #  *$zone_refresh*: Time period. Time between each slave refresh (master only)
 #  *$zone_retry*: Time period. Time between each slave retry (master only)
 #  *$zone_expiracy*: Time period. Slave expiracy time (master only)
-#  *$zone_ns*: Valid NS for this zone (master only)
+#  *$zone_ns*: Array. List of valid NS for this zone (master only)
 #  *$zone_xfers*: IPs. Valid xfers for zone (master only)
 #  *$zone_masters*: IPs. Valid master for this zone (slave only)
 #  *$zone_origin*: The origin of the zone
@@ -29,7 +29,7 @@ define bind::zone (
   $zone_refresh    = '3h',
   $zone_retry      = '1h',
   $zone_expiracy   = '1w',
-  $zone_ns         = '',
+  $zone_ns         = [],
   $zone_xfers      = '',
   $zone_masters    = '',
   $zone_origin     = '',
@@ -37,6 +37,9 @@ define bind::zone (
 ) {
 
   include bind::params
+
+  #Convert strings into one-item arrays for compatibility
+  $zone_ns_array = any2array($zone_ns)
 
   validate_string($ensure)
   validate_re($ensure, ['present', 'absent'],
@@ -52,7 +55,7 @@ define bind::zone (
   validate_string($zone_refresh)
   validate_string($zone_retry)
   validate_string($zone_expiracy)
-  validate_string($zone_ns)
+  validate_slength($zone_ns_array, 255)
   validate_string($zone_origin)
 
   if ($is_slave and $is_dynamic) {
@@ -94,7 +97,7 @@ define bind::zone (
 ## END of slave
       } else {
         validate_re($zone_contact, '^\S+$', "Wrong contact value for ${name}!")
-        validate_re($zone_ns, '^\S+$', "Wrong ns value for ${name}!")
+        validate_re(join($zone_ns_array, ','), '^(\S+,?)+$', "Wrong ns value for ${name}!")
         validate_re($zone_serial, '^\d+$', "Wrong serial value for ${name}!")
         validate_re($zone_ttl, '^\d+$', "Wrong ttl value for ${name}!")
 

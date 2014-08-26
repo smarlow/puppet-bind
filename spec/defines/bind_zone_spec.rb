@@ -60,8 +60,7 @@ require File.expand_path(File.dirname(__FILE__)) + '/parameters.rb'
 
     # Test all string parameters
     [:ensure, :zone_ttl, :zone_contact, :zone_serial, :zone_refresh,
-      :zone_retry, :zone_expiracy, :zone_ns,
-      :zone_origin].each do |p|
+      :zone_retry, :zone_expiracy, :zone_origin].each do |p|
       context "when passing wrong type for #{p}" do
         let (:params) { {
           p => false
@@ -73,6 +72,17 @@ require File.expand_path(File.dirname(__FILE__)) + '/parameters.rb'
         end
       end
       end
+
+    context 'when passing wrong type for zone_ns' do
+      let (:params) { {
+        :zone_ns => false
+      } }
+
+      it 'should fail' do
+        expect { should contain_concat("#v['zones_directory']}/domain.tld.conf")
+        }.to raise_error(Puppet::Error, /Expected element at array position 0 to be a String, got FalseClass/)
+      end
+    end
 
     context 'when master' do
       context 'when passing contact with spaces' do
